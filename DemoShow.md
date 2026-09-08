@@ -35,6 +35,8 @@ LSF HPC Demo 基于 IBM Spectrum LSF 构建，覆盖**集群部署 → 作业调
 ## 三、任务执行
 
 ![任务执行页面](docs/showshots/exec.png)
+<img width="1432" height="1145" alt="1a15cc1b-eb0d-4208-8032-d5a6c2debc37" src="https://github.com/user-attachments/assets/ea6f1651-1664-438a-ab78-5282cdbb2348" />
+
 *图 2 · 任务执行页面*
 
 ### 3.1 提交 HPC 基准作业
@@ -69,6 +71,9 @@ LSF HPC Demo 基于 IBM Spectrum LSF 构建，覆盖**集群部署 → 作业调
 ## 四、作业历史
 
 ![作业历史页面](docs/showshots/jobs.png)
+<img width="1432" height="1145" alt="f45fa2c7-3203-42f3-a0ca-ef1523403cfb" src="https://github.com/user-attachments/assets/c49c30e9-fa22-42de-a787-cdf5f59f8fd6" />
+
+
 *图 3 · 作业历史页面*
 
 1. 左侧导航选择「作业历史」，列出全部提交过的门户作业
@@ -81,6 +86,8 @@ LSF HPC Demo 基于 IBM Spectrum LSF 构建，覆盖**集群部署 → 作业调
 ## 五、LSF 集群
 
 ![LSF集群页面](docs/showshots/cluster.png)
+<img width="1432" height="1145" alt="9d0d7fa7-836d-4da3-985d-3f12018af961" src="https://github.com/user-attachments/assets/62b72f9e-4d60-454a-84ba-07a7a0620aaf" />
+
 *图 4 · LSF 集群页面*
 
 1. 左侧导航选择「LSF 集群」，三张实时表：**bhosts**（节点/状态/槽位/负载）、**bqueues**（队列）、**bjobs**（当前作业）
@@ -93,6 +100,8 @@ LSF HPC Demo 基于 IBM Spectrum LSF 构建，覆盖**集群部署 → 作业调
 ## 六、性能监控
 
 ![性能监控页面](docs/showshots/perf.png)
+<img width="1432" height="1145" alt="25128949-5c20-41b0-af1a-c8577ed6eab0" src="https://github.com/user-attachments/assets/c558446e-105f-4f4e-8b18-a1310f02b81f" />
+
 *图 5 · 性能监控页面（内嵌 Grafana）*
 
 1. 左侧导航选择「性能监控」，内嵌 Grafana 大盘（15 个面板）
