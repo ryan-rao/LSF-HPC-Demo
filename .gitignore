@@ -1,0 +1,8 @@
+# 白名单：只纳管代码目录，忽略介质与其他
+/*
+!/ansible/
+!/lsf-hpc-demo/
+!/monitoring/
+!/docs/
+!/README.md
+!/DemoShow.html
