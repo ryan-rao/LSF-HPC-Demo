@@ -1,0 +1,16 @@
+---
+# ============ HPC 环境安装（工具链 + 双 MPI） ============
+- name: 安装编译工具链与 MPI
+  shell: |
+    rpm -q openmpi || true
+    dnf -y groupinstall "Development Tools"
+    dnf -y install numactl-devel mpich mpich-devel openmpi openmpi-devel \
+                   environment-modules cmake
+
+- name: 显示关键版本
+  shell: rpm -q openmpi mpich cmake gcc --qf '%{NAME}-%{VERSION}\n'
+  register: ver
+
+- name: 版本信息
+  debug: { var: ver.stdout_lines }
+

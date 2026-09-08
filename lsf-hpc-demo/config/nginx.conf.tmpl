@@ -1,0 +1,23 @@
+user  nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /tmp/nginx.pid;
+events { worker_connections 1024; }
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  access_log off;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $grafana_host;
+  proxy_read_timeout 300s;
+  server {
+    listen 8081;
+    location / {
+      proxy_pass http://GRAFANA_UPSTREAM;
+      proxy_hide_header X-Frame-Options;
+      proxy_hide_header Content-Security-Policy;
+    }
+  }
+}

@@ -1,0 +1,70 @@
+---
+# ============ 制作虚机黄金镜像 ============
+# 产物：{{ kvm_image_base }}/{{ new_node_name }}/ 两块 qcow2
+# 定制参数：LSF_SERVER_IP + VM_IP/VM_HOSTNAME（firstboot 开机自动配置入集群）
+- name: 检查镜像是否已存在（已存在则无需动模板机）
+  stat: { path: "{{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_os }}" }
+  register: disk_stat
+
+- name: 检查模板机状态
+  command: virsh domstate {{ kvm_template_vm }}
+  register: tstate
+  changed_when: false
+
+- name: 关闭模板机（保证文件系统一致；仅首次克隆需要）
+  command: virsh shutdown {{ kvm_template_vm }}
+  when: tstate.stdout == 'running' and not disk_stat.stat.exists
+
+- name: 等待模板机完全关闭
+  shell: |
+    for i in $(seq 1 60); do
+      [ "$(virsh domstate {{ kvm_template_vm }})" = "shut off" ] && exit 0
+      sleep 5
+    done
+    exit 1
+  when: not disk_stat.stat.exists
+
+- name: 创建镜像目录并拷贝模板磁盘
+  shell: |
+    mkdir -p {{ kvm_image_base }}/{{ new_node_name }}
+    cd {{ kvm_image_base }}/{{ kvm_template_vm }}
+    cp --reflink=auto *-os.qcow2 {{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_os }}
+    cp --reflink=auto *-data.qcow2 {{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_data }}
+  args: { creates: "{{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_os }}" }
+
+- name: 重启模板机恢复服务（仅首次克隆后）
+  command: virsh start {{ kvm_template_vm }}
+  when: tstate.stdout == 'running' and not disk_stat.stat.exists
+
+- name: 等待模板机 SSH 恢复（避免后续任务撞上重启/STP 收敛窗口）
+  wait_for: { host: "{{ node_ips[kvm_template_vm] }}", port: 22, timeout: 300 }
+  when: not disk_stat.stat.exists
+
+- name: 生成定制参数文件（两个参数）
+  copy:
+    dest: /root/kvm-setup/node-params.env
+    content: |
+      LSF_SERVER_IP={{ lsf_master_ip | default(node_ips[lsf_master], true) }}
+      VM_IP={{ new_node_ip }}
+      VM_HOSTNAME={{ new_node_name }}
+
+- name: 生成 firstboot 脚本
+  copy: { src: firstboot.sh, dest: /root/kvm-setup/firstboot.sh, mode: "0755" }
+
+- name: virt-customize 定制镜像（主机名+参数+首次开机脚本，幂等：标记文件）
+  shell: >
+    virt-customize -a {{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_os }}
+    --hostname {{ new_node_name }}
+    --copy-in /root/kvm-setup/node-params.env:/root/
+    --firstboot /root/kvm-setup/firstboot.sh
+    && touch {{ kvm_image_base }}/{{ new_node_name }}/.customized
+  args: { creates: "{{ kvm_image_base }}/{{ new_node_name }}/.customized" }
+
+- name: 显示镜像产物
+  command: ls -lh {{ kvm_image_base }}/{{ new_node_name }}/
+  register: img
+  changed_when: false
+
+- name: 镜像信息
+  debug: { var: img.stdout_lines }
+

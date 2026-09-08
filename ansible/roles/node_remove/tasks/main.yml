@@ -1,0 +1,70 @@
+---
+# ============ 删除节点：退出 LSF 集群 + 销毁 KVM 虚拟机 ============
+# 用法: ansible-playbook site.yml --tags remove -e remove_node_name=node218 -e remove_node_ip=172.16.12.218
+- name: R1 目标节点停止 LSF 客户端守护
+  shell: |
+    sshpass -p {{ lsf_admin_pass }} ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no -o ConnectTimeout=10 root@{{ remove_node_ip }} '
+    pkill -x sbatchd; pkill -x res; pkill -x lim; true'
+  failed_when: false
+
+- name: R2 master 集群文件移除该节点
+  lineinfile:
+    path: "{{ lsf_top }}/conf/lsf.cluster.{{ lsf_cluster_name }}"
+    state: absent
+    regexp: "^{{ remove_node_name }}\\s"
+  delegate_to: "{{ lsf_master }}"
+
+- name: R3 master 重载 LIM/mbatchd
+  shell: |
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; printf "y\ny\ny\ny\ny\ny\ny\ny\ny\ny\n" | lsadmin reconfig'
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; printf "y\ny\ny\ny\ny\n" | badmin reconfig'
+  delegate_to: "{{ lsf_master }}"
+
+- name: R4 全集群清理 hosts/known_hosts 残留
+  shell: |
+    sed -i "/{{ remove_node_ip }} {{ remove_node_name }}/d" /etc/hosts
+    sed -i "/^{{ remove_node_name }}[ ,]/d" /root/.ssh/known_hosts 2>/dev/null
+    su - {{ lsf_admin_user }} -c "sed -i '/^{{ remove_node_name }},/d;/,{{ remove_node_name }}$/d' ~/.ssh/known_hosts 2>/dev/null"; true
+  run_once: true
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['lsf_cluster'] }}"
+
+- name: R5 关闭并销毁 KVM 虚拟机
+  shell: |
+    virsh shutdown {{ remove_node_name }} 2>/dev/null
+    for i in $(seq 1 24); do
+      [ "$(virsh domstate {{ remove_node_name }} 2>/dev/null)" = "shut off" ] && break
+      sleep 5
+    done
+    [ "$(virsh domstate {{ remove_node_name }} 2>/dev/null)" != "shut off" ] && virsh destroy {{ remove_node_name }}
+    virsh undefine {{ remove_node_name }}
+  failed_when: false
+
+- name: R6 删除虚拟机磁盘镜像
+  file: { path: "{{ kvm_image_base }}/{{ remove_node_name }}", state: absent }
+
+- name: R7 断言集群已无该节点
+  shell: |
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; bhosts; lshosts' |
+    grep -c "^{{ remove_node_name }}\b" || true
+  register: r7
+  delegate_to: "{{ lsf_master }}"
+
+- name: R7 断言（节点已从集群移除）
+  assert: { that: "r7.stdout == '0'", success_msg: "R7 PASS {{ remove_node_name }} 已从 LSF 集群移除" }
+
+- name: R8 断言虚拟机已销毁
+  shell: virsh domstate {{ remove_node_name }} 2>&1 | grep -cE "failed to get domain|not found" || true
+  register: r8
+
+- name: R8 断言（VM 已删除）
+  assert: { that: "r8.stdout == '1'", success_msg: "R8 PASS {{ remove_node_name }} KVM 虚拟机已删除" }
+
+- name: R9 集群剩余节点状态
+  shell: su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; bhosts'
+  register: r9
+  delegate_to: "{{ lsf_master }}"
+  changed_when: false
+
+- name: 剩余集群
+  debug: { var: r9.stdout_lines }

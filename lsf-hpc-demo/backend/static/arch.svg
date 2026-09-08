@@ -1,0 +1,113 @@
+<svg viewBox="0 0 1180 720" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,'Microsoft YaHei',sans-serif" style="width:100%;background:#0d1117">
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8b949e"/></marker>
+<linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f6feb55"/><stop offset="1" stop-color="#1f6feb22"/></linearGradient>
+<linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#23863655"/><stop offset="1" stop-color="#23863622"/></linearGradient>
+<linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9e6a0355"/><stop offset="1" stop-color="#9e6a0322"/></linearGradient>
+</defs>
+
+<!-- 用户层 -->
+<g>
+<rect x="430" y="14" width="320" height="46" rx="8" fill="url(#g1)" stroke="#2d8cf0"/>
+<text x="590" y="42" fill="#79c0ff" text-anchor="middle" font-size="16" font-weight="bold">🌐 用户 / 演示者 (浏览器)</text>
+</g>
+<path d="M590 60 V86" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar)"/>
+<text x="600" y="78" fill="#8b949e" font-size="11">http://172.16.12.181:8080</text>
+
+<!-- 门户层 -->
+<g>
+<rect x="150" y="88" width="880" height="96" rx="10" fill="url(#g2)" stroke="#238636"/>
+<text x="590" y="112" fill="#7ee787" text-anchor="middle" font-size="15" font-weight="bold">Demo Portal 容器 (node181 · FastAPI + Nginx)</text>
+<rect x="170" y="124" width="150" height="34" rx="6" fill="#161b22" stroke="#30363d"/><text x="245" y="146" fill="#c9d1d9" text-anchor="middle" font-size="12">任务执行 (bsub)</text>
+<rect x="335" y="124" width="150" height="34" rx="6" fill="#161b22" stroke="#30363d"/><text x="410" y="146" fill="#c9d1d9" text-anchor="middle" font-size="12">LSF 集群监控页</text>
+<rect x="500" y="124" width="150" height="34" rx="6" fill="#161b22" stroke="#30363d"/><text x="575" y="146" fill="#c9d1d9" text-anchor="middle" font-size="12">作业历史回放</text>
+<rect x="665" y="124" width="150" height="34" rx="6" fill="#161b22" stroke="#30363d"/><text x="740" y="146" fill="#c9d1d9" text-anchor="middle" font-size="12">Grafana 嵌入</text>
+<rect x="830" y="124" width="180" height="34" rx="6" fill="#161b22" stroke="#30363d"/><text x="920" y="146" fill="#c9d1d9" text-anchor="middle" font-size="12">Ansible 全生命周期管理</text>
+</g>
+
+<!-- 左下: LSF 集群 -->
+<path d="M350 184 V230" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar)"/>
+<text x="358" y="212" fill="#8b949e" font-size="11">SSH su lsfadmin · bsub/bjobs/bkill</text>
+<g>
+<rect x="60" y="232" width="580" height="270" rx="10" fill="url(#g1)" stroke="#2d8cf0"/>
+<text x="350" y="258" fill="#79c0ff" text-anchor="middle" font-size="15" font-weight="bold">LSF 集群 cluster1 (5 节点 × 8 slot = 40 槽)</text>
+<!-- master -->
+<rect x="85" y="274" width="250" height="120" rx="8" fill="#161b22" stroke="#388bfd"/>
+<text x="210" y="296" fill="#79c0ff" text-anchor="middle" font-size="13" font-weight="bold">node211 Master</text>
+<text x="210" y="316" fill="#c9d1d9" text-anchor="middle" font-size="11">mbatchd 调度器 · lim/res/sbatchd</text>
+<text x="210" y="334" fill="#c9d1d9" text-anchor="middle" font-size="11">NFS 导出: /data/lsf + /data/hpc</text>
+<text x="210" y="352" fill="#c9d1d9" text-anchor="middle" font-size="11">lsf_exporter :9109</text>
+<text x="210" y="370" fill="#c9d1d9" text-anchor="middle" font-size="11">node_exporter :9100</text>
+<!-- workers -->
+<g>
+<rect x="355" y="274" width="130" height="120" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="420" y="298" fill="#c9d1d9" text-anchor="middle" font-size="12">node212</text>
+<text x="420" y="318" fill="#8b949e" text-anchor="middle" font-size="10">计算节点 8slot</text>
+<text x="420" y="336" fill="#8b949e" text-anchor="middle" font-size="10">node_exporter</text>
+<rect x="500" y="274" width="130" height="120" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="565" y="298" fill="#c9d1d9" text-anchor="middle" font-size="12">node213</text>
+<text x="565" y="318" fill="#8b949e" text-anchor="middle" font-size="10">计算节点 8slot</text>
+<text x="565" y="336" fill="#8b949e" text-anchor="middle" font-size="10">node_exporter</text>
+<rect x="355" y="406" width="130" height="80" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="420" y="436" fill="#c9d1d9" text-anchor="middle" font-size="12">node215</text>
+<text x="420" y="456" fill="#8b949e" text-anchor="middle" font-size="10">计算节点 8slot</text>
+<rect x="500" y="406" width="130" height="80" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="565" y="436" fill="#c9d1d9" text-anchor="middle" font-size="12">node219</text>
+<text x="565" y="456" fill="#8b949e" text-anchor="middle" font-size="10">计算节点 8slot</text>
+</g>
+<!-- hpc shared -->
+<rect x="85" y="406" width="250" height="80" rx="8" fill="#1c2128" stroke="#9e6a03"/>
+<text x="210" y="432" fill="#e3b341" text-anchor="middle" font-size="12" font-weight="bold">/data/hpc (NFS 全节点共享)</text>
+<text x="210" y="452" fill="#c9d1d9" text-anchor="middle" font-size="10">lsf_bench.sh · lsf_mixed.sh · lsf_stress.sh</text>
+<text x="210" y="468" fill="#c9d1d9" text-anchor="middle" font-size="10">hpc-bench-main · lsf_logs · test_out</text>
+</g>
+<path d="M210 394 V406" stroke="#8b949e" stroke-width="1.2" marker-end="url(#ar)"/>
+<path d="M420 394 V406" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#ar)"/>
+<text x="475" y="402" fill="#8b949e" font-size="10">NFS 挂载</text>
+
+<!-- 右下: 监控栈 -->
+<path d="M830 184 V230" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar)"/>
+<text x="838" y="212" fill="#8b949e" font-size="11">嵌入 iframe / proxy</text>
+<g>
+<rect x="680" y="232" width="440" height="270" rx="10" fill="url(#g3)" stroke="#9e6a03"/>
+<text x="900" y="258" fill="#e3b341" text-anchor="middle" font-size="15" font-weight="bold">监控栈 (node181 容器)</text>
+<rect x="705" y="274" width="180" height="90" rx="8" fill="#161b22" stroke="#f0883e"/>
+<text x="795" y="300" fill="#ffa657" text-anchor="middle" font-size="13" font-weight="bold">Grafana :3000</text>
+<text x="795" y="322" fill="#c9d1d9" text-anchor="middle" font-size="10">LSF HPC 集群总览</text>
+<text x="795" y="338" fill="#8b949e" text-anchor="middle" font-size="10">15 面板 · 自动 provision</text>
+<rect x="915" y="274" width="180" height="90" rx="8" fill="#161b22" stroke="#f0883e"/>
+<text x="1005" y="300" fill="#ffa657" text-anchor="middle" font-size="13" font-weight="bold">Prometheus :9090</text>
+<text x="1005" y="322" fill="#c9d1d9" text-anchor="middle" font-size="10">15s 节点采集 / 30s LSF 采集</text>
+<text x="1005" y="338" fill="#8b949e" text-anchor="middle" font-size="10">TSDB 存储</text>
+<rect x="705" y="382" width="390" height="100" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="900" y="408" fill="#c9d1d9" text-anchor="middle" font-size="12" font-weight="bold">采集目标 (6 targets)</text>
+<text x="900" y="430" fill="#8b949e" text-anchor="middle" font-size="10">node_exporter ×5 (:9100) → CPU/内存/网络/磁盘</text>
+<text x="900" y="450" fill="#8b949e" text-anchor="middle" font-size="10">lsf_exporter (:9109) → 作业状态/槽位/队列/24h完成量</text>
+<text x="900" y="470" fill="#8b949e" text-anchor="middle" font-size="10">自研 Python · bjobs/bhosts 转换 Prometheus 指标</text>
+</g>
+<path d="M1005 364 V382" stroke="#8b949e" stroke-width="1.2" marker-end="url(#ar)"/>
+<!-- exporters -> prometheus -->
+<path d="M640 350 C 660 350, 660 420, 705 425" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#ar)"/>
+<text x="648" y="395" fill="#8b949e" font-size="10">metrics 上报</text>
+<!-- prometheus -> grafana -->
+<path d="M895 320 H885" stroke="#8b949e" stroke-width="0"/>
+
+<!-- 底部: HPC 应用 -->
+<g>
+<rect x="60" y="524" width="1060" height="176" rx="10" fill="#161b22" stroke="#a371f7"/>
+<text x="590" y="550" fill="#d2a8ff" text-anchor="middle" font-size="15" font-weight="bold">HPC 应用层 (/data/hpc · MPI 并行)</text>
+<g font-size="11" fill="#c9d1d9" text-anchor="middle">
+<rect x="85" y="566" width="150" height="56" rx="6" fill="#1c2128" stroke="#30363d"/><text x="160" y="588">HACC_IO</text><text x="160" y="606" fill="#8b949e" font-size="10">宇宙学模拟 IO</text>
+<rect x="250" y="566" width="150" height="56" rx="6" fill="#1c2128" stroke="#30363d"/><text x="325" y="588">HACC_OPEN_CLOSE</text><text x="325" y="606" fill="#8b949e" font-size="10">元数据小 IO</text>
+<rect x="415" y="566" width="120" height="56" rx="6" fill="#1c2128" stroke="#30363d"/><text x="475" y="588">BTIO</text><text x="475" y="606" fill="#8b949e" font-size="10">CFD 检查点</text>
+<rect x="550" y="566" width="130" height="56" rx="6" fill="#1c2128" stroke="#30363d"/><text x="615" y="588">MADbench</text><text x="615" y="606" fill="#8b949e" font-size="10">CMB 分析</text>
+<rect x="695" y="566" width="110" height="56" rx="6" fill="#1c2128" stroke="#30363d"/><text x="750" y="588">s3d_io</text><text x="750" y="606" fill="#8b949e" font-size="10">湍流燃烧</text>
+<rect x="820" y="566" width="140" height="56" rx="6" fill="#23863622" stroke="#238636"/><text x="890" y="588" fill="#7ee787">MIXED 混合应用</text><text x="890" y="606" fill="#8b949e" font-size="10">六阶段 ~30min</text>
+<rect x="975" y="566" width="130" height="56" rx="6" fill="#23863622" stroke="#238636"/><text x="1040" y="588" fill="#7ee787">STRESS 压力测试</text><text x="1040" y="606" fill="#8b949e" font-size="10">3批次 48槽</text>
+</g>
+<text x="590" y="656" fill="#8b949e" text-anchor="middle" font-size="11">bsub -n 8 -R "span[ptile=2]" → $LSB_MCPU_HOSTS 动态 hostfile → mpirun --prefix $MPI_HOME · OpenMPI</text>
+<text x="590" y="678" fill="#8b949e" text-anchor="middle" font-size="11">结果 → /data/hpc/lsf_logs/*.out → 门户解析带宽/GiB/exit code 汇总 → Grafana 指标可视化</text>
+</g>
+<path d="M350 502 V524" stroke="#8b949e" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M900 502 V524" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#ar)"/>
+</svg>

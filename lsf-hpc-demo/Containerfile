@@ -1,0 +1,10 @@
+FROM quay.io/ansible/ansible-runner:latest
+LABEL org.opencontainers.image.title="lsf-hpc-demo"
+COPY wheels /tmp/wheels
+RUN pip install --no-index --find-links=/tmp/wheels fastapi "uvicorn[standard]" httpx && \
+    rm -rf /tmp/wheels
+WORKDIR /app
+COPY backend ./backend
+RUN mkdir -p /var/lib/lsf-demo/jobs
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "/app/backend", "--workers", "1"]

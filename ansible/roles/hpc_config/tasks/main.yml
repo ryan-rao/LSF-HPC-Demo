@@ -1,0 +1,58 @@
+---
+# ============ HPC 配置（共享存储 + 编译基准） ============
+- name: master 创建 HPC 共享目录
+  file: { path: "{{ hpc_top }}", state: directory, mode: "0777" }
+  when: inventory_hostname == lsf_master
+
+- name: master 分发基准源码
+  copy: { src: "{{ bench_src_local }}/", dest: "{{ hpc_top }}/hpc-bench-main/" }
+  when: inventory_hostname == lsf_master
+
+- name: master 修正二进制执行权限（copy 可能丢失 x 位）
+  shell: chmod -R a+rX {{ hpc_top }}/hpc-bench-main
+  when: inventory_hostname == lsf_master
+
+- name: master 导出 /data/hpc
+  lineinfile: { path: /etc/exports, line: "{{ hpc_top }} *(rw,no_root_squash,no_subtree_check)" }
+  when: inventory_hostname == lsf_master
+
+- name: master 生效导出
+  shell: exportfs -rv
+  when: inventory_hostname == lsf_master
+
+- name: workers 挂载 HPC 共享盘
+  shell: |
+    mkdir -p {{ hpc_top }}
+    grep -q " {{ hpc_top }} " /etc/fstab || echo "{{ node_ips[lsf_master] }}:{{ hpc_top }} {{ hpc_top }} nfs defaults,_netdev 0 0" >> /etc/fstab
+    mountpoint -q {{ hpc_top }} || mount {{ hpc_top }}
+  when: inventory_hostname != lsf_master
+
+- name: 全节点 MPI 环境变量
+  copy:
+    dest: /etc/profile.d/hpc.sh
+    content: |
+      export MPI_HOME={{ mpi_home }}
+      export MPICH_HOME={{ mpich_home }}
+      export PATH=$MPI_HOME/bin:$MPICH_HOME/bin:$PATH
+      export LD_LIBRARY_PATH=$MPI_HOME/lib:$MPICH_HOME/lib:$LD_LIBRARY_PATH
+      export LIBRARY_PATH=$MPI_HOME/lib:$MPICH_HOME/lib:$LIBRARY_PATH
+      export INSTALL_PATH={{ hpc_top }}/hpc-bench-main
+
+- name: master 编译五大基准（NFS 共享，编一次全集群可用）
+  shell: |
+    . /etc/profile.d/hpc.sh
+    cd $INSTALL_PATH && rm -rf build
+    cmake -B build -S . -DCMAKE_INSTALL_PREFIX=$INSTALL_PATH -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j
+    cmake --install build
+  args: { creates: "{{ hpc_top }}/hpc-bench-main/bin/HACC_IO" }
+  when: inventory_hostname == lsf_master
+
+- name: master 修正编译产物执行位（cmake install 可能 644）
+  shell: chmod -R a+rx {{ hpc_top }}/hpc-bench-main/bin
+  when: inventory_hostname == lsf_master
+
+- name: 创建作业目录
+  file: { path: "{{ item }}", state: directory, mode: "0777" }
+  loop: [ "{{ hpc_top }}/lsf_logs", "{{ hpc_top }}/test_out" ]
+  when: inventory_hostname == lsf_master

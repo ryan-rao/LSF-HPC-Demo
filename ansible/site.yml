@@ -1,0 +1,55 @@
+---
+# 全生命周期入口：
+#   安装:  ansible-playbook site.yml --tags install
+#   配置:  ansible-playbook site.yml --tags config
+#   测试:  ansible-playbook site.yml --tags test
+#   集成:  ansible-playbook site.yml --tags integrate
+#   卸载:  ansible-playbook site.yml --tags uninstall
+- name: LSF HPC 平台 · 安装
+  hosts: lsf_cluster
+  roles:
+    - { role: lsf_install, tags: [install, lsf_install] }
+    - { role: hpc_install, tags: [install, hpc_install] }
+
+- name: LSF HPC 平台 · 配置
+  hosts: lsf_cluster
+  roles:
+    - { role: lsf_config, tags: [config, lsf_config] }
+    - { role: hpc_config, tags: [config, hpc_config] }
+
+- name: LSF HPC 平台 · 集成(LSF 调度 HPC)
+  hosts: lsf_cluster
+  roles:
+    - { role: lsf_hpc_integration, tags: [integrate, config] }
+
+- name: LSF HPC 平台 · 测试
+  hosts: lsf_master
+  roles:
+    - { role: lsf_test, tags: [test, lsf_test] }
+    - { role: hpc_test, tags: [test, hpc_test] }
+
+- name: LSF HPC 平台 · 卸载
+  hosts: lsf_cluster
+  roles:
+    - { role: hpc_uninstall, tags: [uninstall, hpc_uninstall] }
+    - { role: lsf_uninstall, tags: [uninstall, lsf_uninstall] }
+
+- name: 制作虚机黄金镜像（模板机拷盘+定制参数）
+  hosts: kvm_host
+  roles:
+    - { role: kvm_image_build, tags: [image] }
+
+- name: 镜像部署新节点并加入 LSF 集群
+  hosts: kvm_host
+  roles:
+    - { role: node_deploy, tags: [deploy] }
+
+- name: 删除 LSF 节点与 KVM 虚拟机
+  hosts: kvm_host
+  roles:
+    - { role: node_remove, tags: [remove] }
+
+- name: 删除 LSF 节点与 KVM 虚拟机
+  hosts: kvm_host
+  roles:
+    - { role: node_remove, tags: [remove] }

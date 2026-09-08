@@ -1,0 +1,30 @@
+[lsf_master]
+node211 ansible_host=172.16.12.211
+
+[lsf_workers]
+node212 ansible_host=172.16.12.212
+node213 ansible_host=172.16.12.213
+node215 ansible_host=172.16.12.215
+node219 ansible_host=172.16.12.219
+
+[lsf_cluster:children]
+lsf_master
+lsf_workers
+
+[lsf_cluster:vars]
+ansible_user=root
+ansible_password=Redhat@123
+
+[kvm_host]
+node181 ansible_host=172.16.12.181
+
+[kvm_new]
+node217 ansible_host=172.16.12.217
+
+[kvm_host:vars]
+ansible_user=root
+ansible_password=Redhat@123
+
+[kvm_new:vars]
+ansible_user=root
+ansible_password=Redhat@123

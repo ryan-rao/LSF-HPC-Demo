@@ -1,0 +1,87 @@
+---
+# ============ LSF 安装 ============
+- name: /etc/hosts 集群解析
+  lineinfile: { path: /etc/hosts, line: "{{ node_ips[item] }} {{ item }}" }
+  loop: "{{ groups['lsf_cluster'] }}"
+
+- name: /etc/hosts 控制机解析
+  lineinfile: { path: /etc/hosts, line: "{{ control_ip }} {{ control_host }}" }
+
+- name: 挂载 ISO 本地源（依赖 rpm 来源）
+  shell: |
+    mkdir -p /mnt/iso
+    grep -q " {{ ' ' }} /mnt/iso " /etc/fstab || echo "{{ iso_export }} /mnt/iso nfs ro,defaults,_netdev 0 0" >> /etc/fstab
+    mountpoint -q /mnt/iso || mount /mnt/iso
+
+- name: 配置本地 yum 源
+  copy:
+    dest: /etc/yum.repos.d/local-iso.repo
+    content: |
+      [local-baseos]
+      name=RHEL9-BaseOS
+      baseurl=file:///mnt/iso/BaseOS
+      enabled=1
+      gpgcheck=0
+      [local-appstream]
+      name=RHEL9-AppStream
+      baseurl=file:///mnt/iso/AppStream
+      enabled=1
+      gpgcheck=0
+
+- name: 安装 LSF 依赖（libnsl/ed/info）
+  shell: rpm -q libnsl ed info || dnf -y install libnsl ed info
+
+- name: 创建 LSF 管理员
+  shell: id {{ lsf_admin_user }} || { useradd -m {{ lsf_admin_user }}; echo {{ lsf_admin_user }}:{{ lsf_admin_pass }} | chpasswd; }
+
+- name: master 创建介质/安装目录
+  file: { path: "{{ item }}", state: directory }
+  loop: [ "{{ lsf_media_dir }}/installer", "{{ lsf_top }}" ]
+  when: inventory_hostname == lsf_master
+
+- name: master 分发 LSF 介质
+  copy: { src: "{{ lsf_media_local }}/{{ item }}", dest: "{{ lsf_media_dir }}/{{ item }}", mode: "0644" }
+  loop: [ "{{ lsf_installer_tar }}", "{{ lsf_binary_tar }}" ]
+  when: inventory_hostname == lsf_master
+
+- name: master 解压安装器
+  shell: gzip -dc {{ lsf_media_dir }}/{{ lsf_installer_tar }} | tar xf -
+  args: { chdir: "{{ lsf_media_dir }}/installer", creates: "{{ lsf_media_dir }}/installer/lsf10.1_lsfinstall" }
+  when: inventory_hostname == lsf_master
+
+- name: master 生成 install.config
+  copy:
+    dest: "{{ lsf_media_dir }}/installer/lsf10.1_lsfinstall/install.config"
+    content: |
+      LSF_TOP="{{ lsf_top }}"
+      LSF_ADMINS="{{ lsf_admin_user }}"
+      LSF_CLUSTER_NAME="{{ lsf_cluster_name }}"
+      LSF_MASTER_LIST="{{ lsf_master }}"
+      LSF_TARDIR="{{ lsf_media_dir }}"
+      LSF_ADD_SERVERS="{{ groups['lsf_cluster'] | join(' ') }}"
+      LSF_QUIET_INST="Y"
+  when: inventory_hostname == lsf_master
+
+- name: master 执行 lsfinstall（自动接受 license）
+  shell: printf '1\ny\ny\ny\n' | ./lsfinstall -f install.config
+  args: { chdir: "{{ lsf_media_dir }}/installer/lsf10.1_lsfinstall", creates: "{{ lsf_top }}/10.1" }
+  when: inventory_hostname == lsf_master
+
+- name: master 导出 LSF_TOP（NFS）
+  lineinfile: { path: /etc/exports, line: "{{ lsf_top }} *(rw,no_root_squash,no_subtree_check)" }
+  when: inventory_hostname == lsf_master
+
+- name: master 生效导出
+  shell: exportfs -rv
+  when: inventory_hostname == lsf_master
+
+- name: workers 挂载 LSF_TOP
+  shell: |
+    mkdir -p {{ lsf_top }}
+    grep -q " {{ lsf_top }} " /etc/fstab || echo "{{ node_ips[lsf_master] }}:{{ lsf_top }} {{ lsf_top }} nfs defaults,_netdev 0 0" >> /etc/fstab
+    mountpoint -q {{ lsf_top }} || mount {{ lsf_top }}
+  when: inventory_hostname != lsf_master
+
+- name: 全节点 hostsetup（开机自启）
+  shell: . {{ lsf_top }}/conf/profile.lsf && {{ lsf_top }}/10.1/install/hostsetup --top={{ lsf_top }} --boot=y --start=n --profile=y --silent
+  args: { creates: /etc/lsf.conf }

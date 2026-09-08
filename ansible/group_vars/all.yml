@@ -1,0 +1,52 @@
+---
+# ===== LSF HPC 平台 Ansible 全局参数 =====
+# 节点 IP 映射（扩容在此加一行 + inventory 加主机即可）
+node_ips:
+  node211: 172.16.12.211
+  node212: 172.16.12.212
+  node213: 172.16.12.213
+  node215: 172.16.12.215
+  node219: 172.16.12.219
+
+control_ip: 172.16.12.181
+control_host: node181
+
+# ---- LSF ----
+lsf_top: /data/lsf
+lsf_cluster_name: cluster1
+lsf_admin_user: lsfadmin
+lsf_admin_pass: Redhat@123
+lsf_master: node211
+lsf_media_local: /home/lsf                    # 控制机(181)上介质目录
+lsf_media_dir: /data/lsf_inst                 # master 上介质目录
+lsf_installer_tar: lsf10.1_lsfinstall_linux_x86_64.tar.Z
+lsf_binary_tar: lsf10.1_lnx310-lib217-x86_64.tar.Z
+
+# ---- HPC ----
+hpc_top: /data/hpc
+bench_src_local: /home/lsf/hpc-bench-main     # 控制机上基准源码
+mpi_home: /usr/lib64/openmpi
+mpich_home: /usr/lib64/mpich
+iso_export: node181:/mnt/iso
+
+# ---- 卸载选项 ----
+uninstall_keep_pkgs: true
+uninstall_keep_lsfadmin: true
+
+# ---- 镜像制作与新节点部署 ----
+kvm_host_name: node181
+kvm_image_base: /home/kvm                 # 镜像目录（宿主机）
+kvm_template_vm: node212                  # 黄金模板机（含 LSF 客户端+HPC）
+new_node_name: node217                    # 新节点参数①：主机名
+new_node_ip: 172.16.12.217                # 新节点参数②：IP
+new_node_mac: "52:54:00:12:00:d8"         # 与 IP 末段对应（211=d3）
+node_disk_os: "{{ new_node_name }}-os.qcow2"
+node_disk_data: "{{ new_node_name }}-data.qcow2"
+
+# ---- 节点删除 ----
+remove_node_name: node217                 # 要删除的节点名
+remove_node_ip: 172.16.12.217             # 要删除的节点 IP
+
+# ---- 节点删除 ----
+remove_node_name: node217                 # 要删除的节点名
+remove_node_ip: 172.16.12.217             # 要删除的节点 IP

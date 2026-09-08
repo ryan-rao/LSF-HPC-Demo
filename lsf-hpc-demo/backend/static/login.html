@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LSF HPC Demo 登录</title>
+<style>
+  body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0d1117 60%,#10151d);font-family:system-ui,"Microsoft YaHei",sans-serif;color:#c9d1d9}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:36px 40px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+  h1{font-size:20px;color:#58a6ff;margin:0 0 4px;text-align:center}
+  .sub{font-size:12px;color:#8b949e;text-align:center;margin-bottom:24px}
+  label{display:block;font-size:13px;color:#8b949e;margin:12px 0 4px}
+  input{width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:9px 12px;color:#eee;font-size:14px}
+  input:focus{outline:none;border-color:#2d8cf0}
+  button{width:100%;margin-top:22px;background:#2d8cf0;color:#fff;border:none;border-radius:6px;padding:10px;font-size:15px;cursor:pointer}
+  button:hover{background:#1f6feb}
+  #err{color:#ff7b72;font-size:12px;text-align:center;margin-top:12px;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🚀 LSF HPC Demo</h1>
+  <div class="sub">高性能计算调度演示平台 · 请登录</div>
+  <label>用户名</label><input id="u" autofocus autocomplete="username">
+  <label>密码</label><input id="p" type="password" autocomplete="current-password">
+  <button id="go">登 录</button>
+  <div id="err">用户名或密码错误</div>
+</div>
+<script>
+const go=async()=>{
+  const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({user:u.value.trim(),pass:p.value})});
+  if(r.ok){location.href="/"}else{err.style.display="block"}};
+document.getElementById("go").onclick=go;
+document.addEventListener("keydown",e=>{if(e.key==="Enter")go()});
+</script>
+</body>
+</html>

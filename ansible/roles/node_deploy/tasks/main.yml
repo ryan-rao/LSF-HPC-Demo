@@ -1,0 +1,113 @@
+---
+# ============ 镜像部署新节点 + 加入 LSF 集群 ============
+- name: D1 定义并启动新 VM
+  command: >
+    virt-install --import --name {{ new_node_name }} --memory 16384 --vcpus 8
+    --disk path={{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_os }},bus=virtio
+    --disk path={{ kvm_image_base }}/{{ new_node_name }}/{{ node_disk_data }},bus=virtio
+    --network bridge=br0,mac={{ new_node_mac }}
+    --osinfo rhel9.0 --noautoconsole
+  args: { creates: "/etc/libvirt/qemu/{{ new_node_name }}.xml" }
+
+- name: D2 等待新节点 SSH 就绪（firstboot 配 IP 后）
+  wait_for: { host: "{{ new_node_ip }}", port: 22, timeout: 420 }
+
+- name: D3 等待 firstboot 完成
+  shell: for i in $(seq 1 30); do sshpass -p {{ lsf_admin_pass }} ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no root@{{ new_node_ip }} "grep -q 'firstboot done' /var/log/firstboot.log" && exit 0; sleep 10; done; exit 1
+
+- name: D4 master 集群文件收录新节点（共享 NFS，唯一真相源）
+  lineinfile:
+    path: "{{ lsf_top }}/conf/lsf.cluster.{{ lsf_cluster_name }}"
+    line: "{{ new_node_name }}\t!\t!\t1\t()"
+    insertbefore: "^End +Host"
+  delegate_to: "{{ lsf_master }}"
+
+- name: D5.6 全集群 hosts 补新节点（必须在 reconfig 前，master 才能解析新节点名）
+  lineinfile: { path: /etc/hosts, line: "{{ new_node_ip }} {{ new_node_name }}" }
+  ignore_unreachable: true
+  run_once: true
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['lsf_cluster'] }}"
+
+- name: D5 master 重载 LIM/mbatchd
+  shell: |
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; printf "y\ny\ny\ny\ny\ny\ny\ny\ny\ny\n" | lsadmin reconfig'
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; printf "y\ny\ny\ny\ny\n" | badmin reconfig'
+  delegate_to: "{{ lsf_master }}"
+
+- name: D5.5 重启新节点 LSF 客户端守护（firstboot 起的 lim 早于 master 收录，需重注册）
+  shell: |
+    sshpass -p {{ lsf_admin_pass }} ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no root@{{ new_node_ip }} '
+    systemctl restart lsfd; sleep 5; systemctl is-active lsfd'
+
+- name: D7 各节点 lsfadmin known_hosts 补新节点（MPI 互信）
+  shell: su - {{ lsf_admin_user }} -c "ssh-keyscan -H {{ new_node_name }} >> ~/.ssh/known_hosts 2>/dev/null"; true
+  ignore_unreachable: true
+  run_once: true
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['lsf_cluster'] }}"
+
+- name: D8 新节点自身环境核验（IP/主机名/NFS/守护进程）
+  shell: |
+    sshpass -p {{ lsf_admin_pass }} ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no root@{{ new_node_ip }} '
+    hostname; ip -4 addr show | grep "inet {{ new_node_ip }}"
+    df -h /data/lsf /data/hpc | tail -2
+    pgrep -x lim && pgrep -x sbatchd && echo DAEMONS_OK'
+  register: d8
+
+- name: D8 断言
+  assert:
+    that: "'DAEMONS_OK' in d8.stdout and 'firstboot' is defined"
+    success_msg: "D8 PASS 新节点环境就绪（IP/NFS/守护进程）"
+
+- name: D9 等待新节点出现在集群并 ok
+  shell: |
+    for i in $(seq 1 24); do
+      ST=$(su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; bhosts' 2>/dev/null | awk -v h={{ new_node_name }} '$1==h{print $2}')
+      [ "$ST" = ok ] && echo ok && exit 0
+      sleep 5
+    done
+    echo "STATE=$ST"; exit 1
+  register: d9
+  delegate_to: "{{ lsf_master }}"
+
+- name: D9 断言（自动加入 LSF 集群）
+  assert: { that: "d9.stdout == 'ok'", success_msg: "D9 PASS {{ new_node_name }} 已加入集群且 ok" }
+
+- name: D10 作业负载验证（bsub 指定新节点）
+  shell: |
+    su - {{ lsf_admin_user }} -c '
+    . {{ lsf_top }}/conf/profile.lsf
+    ID=$(bsub -m {{ new_node_name }} -J deploy_test sleep 5 | grep -oE "[0-9]+")
+    [ -z "$ID" ] && echo SUBMIT_FAIL && exit 1
+    for i in $(seq 1 30); do
+      ST=$(bjobs -noheader $ID 2>/dev/null | awk "{print \$3}")
+      [ "$ST" = DONE ] && echo JOB_DONE && exit 0
+      [ "$ST" = EXIT ] && echo JOB_EXIT && exit 1
+      sleep 2
+    done
+    echo TIMEOUT; exit 1'
+  register: d10
+  delegate_to: "{{ lsf_master }}"
+
+- name: D10 断言（作业调度到新节点）
+  assert: { that: "d10.stdout == 'JOB_DONE'", success_msg: "D10 PASS 作业已负载到 {{ new_node_name }}" }
+
+- name: D11 MPI HPC 作业验证（新节点跑基准）
+  shell: |
+    su - {{ lsf_admin_user }} -c '
+    . {{ lsf_top }}/conf/profile.lsf
+    ID=$(bsub -m {{ new_node_name }} -n 4 -R "span[hosts=1]" -J deploy_hacc \
+         -o {{ hpc_top }}/lsf_logs/deploy_hacc.%J.out {{ hpc_top }}/lsf_bench.sh HACC_IO | grep -oE "[0-9]+")
+    for i in $(seq 1 60); do
+      ST=$(bjobs -noheader $ID 2>/dev/null | awk "{print \$3}")
+      [ "$ST" = DONE ] && break
+      [ "$ST" = EXIT ] && echo JOB_EXIT && exit 1
+      sleep 5
+    done
+    grep -q "=== HACC_IO exit=0" {{ hpc_top }}/lsf_logs/deploy_hacc.$ID.out && echo HPC_PASS'
+  register: d11
+  delegate_to: "{{ lsf_master }}"
+
+- name: D11 断言
+  assert: { that: "'HPC_PASS' in d11.stdout", success_msg: "D11 PASS HACC_IO 在 {{ new_node_name }} exit=0" }

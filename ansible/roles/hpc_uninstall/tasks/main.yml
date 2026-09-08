@@ -1,0 +1,28 @@
+---
+# ============ HPC 卸载 ============
+- name: workers 卸载 HPC 共享盘
+  shell: |
+    umount -f -l {{ hpc_top }} 2>/dev/null; true
+    sed -i "\#{{ hpc_top }} #d" /etc/fstab
+    rm -rf {{ hpc_top }}
+  when: inventory_hostname != lsf_master
+
+- name: master 移除 HPC 导出
+  lineinfile: { path: /etc/exports, state: absent, regexp: "^{{ hpc_top }}\\s" }
+  when: inventory_hostname == lsf_master
+
+- name: master 生效导出
+  shell: exportfs -rv
+  when: inventory_hostname == lsf_master
+
+- name: master 清理 HPC 目录
+  file: { path: "{{ hpc_top }}", state: absent }
+  when: inventory_hostname == lsf_master
+
+- name: 清理 MPI 环境变量
+  file: { path: /etc/profile.d/hpc.sh, state: absent }
+
+- name: 可选卸载软件包（默认保留）
+  shell: dnf -y remove openmpi\* mpich\* cmake environment-modules numactl-devel
+  when: not uninstall_keep_pkgs | bool
+  ignore_errors: true

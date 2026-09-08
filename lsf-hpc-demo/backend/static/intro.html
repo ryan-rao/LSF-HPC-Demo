@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>LSF HPC Demo 介绍</title>
+<style>
+  body{background:#0d1117;color:#c9d1d9;font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;padding:24px;line-height:1.75}
+  h1{color:#58a6ff;border-bottom:1px solid #30363d;padding-bottom:10px}
+  h2{color:#79c0ff;margin-top:34px;border-left:4px solid #2d8cf0;padding-left:10px}
+  h3{color:#a5d6ff}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+  th,td{border:1px solid #30363d;padding:7px 10px;text-align:left}
+  th{background:#161b22;color:#79c0ff}
+  code{background:#1c2128;padding:2px 6px;border-radius:4px;color:#7ee787;font-size:13px}
+  .arch{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;color:#8b949e;white-space:pre;overflow-x:auto}
+  .tag{display:inline-block;background:#1f6feb33;color:#79c0ff;border-radius:4px;padding:1px 8px;font-size:12px;margin:2px}
+  .warn{background:#3f2d04;color:#e3b341;border-radius:6px;padding:10px 14px;margin:10px 0}
+</style>
+</head>
+<body>
+
+<h1>LSF HPC Demo 平台介绍</h1>
+<p>基于 IBM Spectrum LSF 构建的 HPC（高性能计算）解决方案演示环境，覆盖集群部署、作业调度、HPC 应用运行、监控告警的全链路演示。</p>
+
+<h2>一、方案架构</h2>
+<img src="/static/arch.svg" alt="LSF HPC Demo 方案架构图" style="width:100%;border:1px solid #30363d;border-radius:8px">
+<table>
+<tr><th>组件</th><th>说明</th></tr>
+<tr><td>LSF Master (node211)</td><td>mbatchd 调度核心，配置/集群文件，NFS 导出 /data/lsf 与 /data/hpc</td></tr>
+<tr><td>计算节点 ×4</td><td>node212/213/215/219，sbatchd/res 守护进程，每节点 8 slot</td></tr>
+<tr><td>Demo Portal</td><td>任务执行页面一键提交 LSF/HPC 作业；Ansible 全生命周期管理（安装/配置/测试/扩容）</td></tr>
+<tr><td>监控栈</td><td>Prometheus 采集 node_exporter(CPU/内存/网络/磁盘) + lsf_exporter(作业/槽位/队列)，Grafana 可视化</td></tr>
+</table>
+
+<h2>二、HPC 应用场景与背景</h2>
+<p>本 demo 集成了 5 个源自真实超算场景的 HPC IO/计算基准，加上 2 个组合型应用：</p>
+<table>
+<tr><th>应用</th><th>场景背景</th></tr>
+<tr><td>HACC_IO</td><td>宇宙学模拟 (Hardware/Hybrid Accelerated Cosmology)，粒子数据集体 IO 读写，源自美国 Argonne 实验室宇宙模拟项目</td></tr>
+<tr><td>HACC_OPEN_CLOSE</td><td>HACC 变体：反复打开/关闭文件测试元数据与小 IO 性能</td></tr>
+<tr><td>BTIO</td><td>NAS Parallel Benchmark 的块状 IO 测试，MPI-IO 集合写，航空航天 CFD 检查点场景</td></tr>
+<tr><td>MADbench</td><td>宇宙微波背景 (CMB) 分析 IO 基准，源自 MAP/Planck 卫星数据处理</td></tr>
+<tr><td>s3d_io</td><td>湍流燃烧直接数值模拟 (S3D) 的 IO 模式，Teragrid 主流负载</td></tr>
+<tr><td>MIXED 混合应用</td><td>六阶段组合负载：串行预处理 → MPI 计算 → 数组式并行 → MPI 集体 IO → 依赖链 → 汇总校验，模拟真实业务流水线（约30分钟）</td></tr>
+<tr><td>STRESS 压力测试</td><td>3 批次×7 子作业共 48 槽需求压满 40 槽集群，制造排队压力验证调度器吞吐</td></tr>
+</table>
+
+<h2>三、Demo 中 HPC 如何使用</h2>
+<h3>1. 提交作业</h3>
+<p>「任务执行」页选择 HPC 应用 → 点击 <code>▶ EXECUTE</code>，门户自动 SSH 到 Master 执行 bsub。等价命令示例：</p>
+<p><code>bsub -J demo_HACC_IO -n 8 -R "span[ptile=2]" -o /data/hpc/lsf_logs/%J.out /data/hpc/lsf_bench.sh HACC_IO</code></p>
+<h3>2. 监控作业</h3>
+<p>「LSF 集群」页实时查看 bhosts/bqueues/bjobs（自动刷新 5/10/20/30 秒可选，支持立即刷新），并显示集群负载趋势图；「性能监控」页内嵌 Grafana 大盘看 CPU/内存/网络/槽位占用。</p>
+<h3>3. 查看结果</h3>
+<p>「作业历史」页回放任意作业的终端输出；作业日志在 <code>/data/hpc/lsf_logs/</code>，数据输出在 <code>/data/hpc/test_out/</code>。</p>
+<h3>4. 取消作业</h3>
+<p>执行页右侧「■ 取消全部作业」一键 bkill 所有执行中/排队中的 HPC 作业（有二次确认）。</p>
+
+<h3>页面截图</h3>
+<table>
+<tr><th>Dashboard 总览</th><th>任务执行页面</th></tr>
+<tr><td><img src="/static/shots/dash.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td>
+    <td><img src="/static/shots/exec.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td></tr>
+<tr><th>LSF 集群监控页面</th><th>说明</th></tr>
+<tr><td><img src="/static/shots/cluster.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td>
+    <td style="vertical-align:top;font-size:13px;color:#8b949e">集群监控页含 Master/Hosts OK 卡片与负载趋势图（同行等高）、bhosts/bqueues/bjobs 终端面板、自动刷新间隔选择器（5/10/20/30秒）与「立即刷新」「最后更新」指示。</td></tr>
+</table>
+
+<h3>页面截图</h3>
+<table>
+<tr><th>Dashboard 总览</th><th>任务执行页面</th></tr>
+<tr><td><img src="/static/shots/dash.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td>
+    <td><img src="/static/shots/exec.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td></tr>
+<tr><th>LSF 集群监控页面</th><th>说明</th></tr>
+<tr><td><img src="/static/shots/cluster.png" style="width:100%;border:1px solid #30363d;border-radius:6px"></td>
+    <td style="vertical-align:top;font-size:13px;color:#8b949e">集群监控页含 Master/Hosts OK 卡片与负载趋势图（同行等高）、bhosts/bqueues/bjobs 终端面板、自动刷新间隔选择器（5/10/20/30秒）与「立即刷新」「最后更新」指示。</td></tr>
+</table>
+<div class="warn">注意：MIXED 约 30 分钟、STRESS 约 15 分钟，请勿在演示中途重启 Demo 容器，否则门户会误报作业失败（LSF 侧作业不受影响）。</div>
+
+<h2>四、HPC 应用与 LSF 的集成</h2>
+<h3>1. 通用调度脚本</h3>
+<p>所有基准通过统一入口 <code>/data/hpc/lsf_bench.sh</code> 调度，脚本从 LSF 环境变量 <code>$LSB_MCPU_HOSTS</code> 动态生成 MPI hostfile，实现 LSF 分配到哪里、mpirun 就跑到哪里。</p>
+<h3>2. 集成要点</h3>
+<table>
+<tr><th>环节</th><th>实现</th></tr>
+<tr><td>槽位↔进程映射</td><td><code>-n 8 -R "span[ptile=2]"</code> → 4节点×2slot，hostfile 按分配自动生成，MPI rank 与 slot 对齐</td></tr>
+<tr><td>共享存储</td><td>Master NFS 导出 /data/hpc，全部节点可读写，二进制/脚本/日志/数据共享</td></tr>
+<tr><td>免密互信</td><td>lsfadmin 全节点 SSH 互信（mpirun 可能从任意执行首节点发起）</td></tr>
+<tr><td>并行环境</td><td>OpenMPI，mpirun <code>--prefix</code> 解决非交互 SSH 的 PATH 问题</td></tr>
+<tr><td>应用约束适配</td><td>BTIO/MADbench 需平方数进程（-n 4 ptile=1）；s3d_io 必须指定 -d 输出目录</td></tr>
+<tr><td>作业状态回流</td><td>门户轮询 bjobs 到 DONE/EXIT，回读 .out 日志解析带宽/GiB/exit code 汇总展示</td></tr>
+</table>
+<h3>3. 指标采集</h3>
+<p>自研 lsf_exporter 调用 bjobs/bhosts 输出 Prometheus 指标（作业状态数、槽位占用、队列分布、24h 完成量），Grafana「LSF HPC 集群总览」15 面板实时展现调度与资源全景。</p>
+
+<p style="color:#8b949e;margin-top:36px">LSF HPC Demo · 集群: cluster1 · 5 节点 40 槽 · 更新: 2026-09-08</p>
+</body>
+</html>

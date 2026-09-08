@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LSF HPC Demo Portal</title>
+<style>
+:root{--bg:#0b0f14;--panel:#111820;--panel2:#0e141c;--line:#1e2a38;--txt:#c9d6e3;--dim:#6b7f94;
+--acc:#00d4aa;--warn:#ffb454;--err:#ff5f6d;--run:#4aa8ff;--ok:#00d4aa;--pend:#8a94a6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:14px/1.5 "SF Mono",Consolas,Menlo,monospace;height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+header .logo{color:var(--acc);font-weight:700;font-size:16px;letter-spacing:2px}
+header .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+header .sub{color:var(--dim);font-size:12px}
+header .spacer{flex:1}
+header a.btn{color:var(--acc);text-decoration:none;border:1px solid var(--acc);padding:4px 10px;border-radius:4px;font-size:12px}
+.wrap{flex:1;display:flex;overflow:hidden}
+nav{width:210px;background:var(--panel2);border-right:1px solid var(--line);padding:12px 0;flex-shrink:0}
+nav .grp{color:var(--dim);font-size:11px;padding:10px 16px 4px;letter-spacing:1px}
+nav a{display:block;padding:8px 16px;color:var(--txt);text-decoration:none;font-size:13px;border-left:2px solid transparent}
+nav a:hover{background:var(--panel)}
+nav a.on{border-left-color:var(--acc);color:var(--acc);background:var(--panel)}
+main{flex:1;overflow:auto;padding:18px 22px}
+h2{font-size:15px;color:#fff;margin-bottom:14px;letter-spacing:1px}
+.cards{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px;align-items:stretch}
+.card.trend{flex:1 1 320px;display:flex;flex-direction:column}
+.card.trend svg{flex:1;width:100%;min-height:64px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px;min-width:150px}
+.card .k{color:var(--dim);font-size:11px;letter-spacing:1px}
+.card .v{font-size:24px;color:#fff;margin-top:4px}
+.card .v.ok{color:var(--ok)}.card .v.run{color:var(--run)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:18px}
+.panel .hd{padding:10px 16px;border-bottom:1px solid var(--line);color:#fff;font-size:13px;letter-spacing:1px;display:flex;align-items:center;gap:10px}
+.panel .bd{padding:14px 16px}
+select,button{background:#0b1420;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:8px 12px;font:inherit;outline:none}
+select{min-width:280px}
+button.exe{background:linear-gradient(135deg,#00d4aa33,#00d4aa11);border:1px solid var(--acc);color:var(--acc);font-weight:700;padding:8px 22px;cursor:pointer}
+button.exe:hover{background:#00d4aa22}
+button.mini{padding:4px 10px;font-size:12px;cursor:pointer}
+.term{background:#05080c;border-radius:6px;border:1px solid var(--line);padding:12px;max-height:380px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:12px;color:#9fe8c9}
+.term .err{color:var(--err)}
+.badge{display:inline-block;padding:1px 10px;border-radius:10px;font-size:11px;border:1px solid}
+.SUCCESS{color:var(--ok);border-color:var(--ok)}.FAILED{color:var(--err);border-color:var(--err)}
+.RUNNING{color:var(--run);border-color:var(--run)}.PENDING{color:var(--pend);border-color:var(--pend)}
+.CANCELLED{color:var(--warn);border-color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{color:var(--dim);text-align:left;font-weight:400;padding:6px 10px;border-bottom:1px solid var(--line);letter-spacing:1px}
+td{padding:6px 10px;border-bottom:1px solid #16202c}
+tr:hover td{background:#0d141d}
+.sumgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.sumgrid .it{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+.sumgrid .it .k{color:var(--dim);font-size:11px}.sumgrid .it .v{color:#fff;margin-top:2px}
+iframe{width:100%;height:calc(100vh - 210px);border:1px solid var(--line);border-radius:8px;background:#000}
+.muted{color:var(--dim)}.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#dangerNote{color:var(--warn);font-size:12px;margin-top:6px;display:none}
+.taskdesc{color:var(--dim);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="dot"></div><div class="logo">LSF HPC DEMO</div>
+  <div class="sub">Ansible · LSF Cluster · HPC Benchmarks · Grafana</div>
+  <div class="spacer"></div><div class="sub" id="clock"></div>
+  <a class="btn" href="#" onclick="nav('intro');return false">Demo 介绍</a>
+  <a class="btn" href="#" onclick="if(confirm('退出登录？'))fetch('/api/logout',{method:'POST'}).then(()=>location.href='/login');return false">退出 ↪</a>
+  <a class="btn" id="grafanaOpen" target="_blank" href="#">Open Grafana ↗</a>
+</header>
+<div class="wrap">
+<nav>
+  <div class="grp">导航</div>
+  <a href="#" class="on" data-v="dash">Dashboard</a>
+  <a href="#" data-v="exec">任务执行</a>
+  <a href="#" data-v="jobs">作业历史</a>
+  <a href="#" data-v="cluster">LSF 集群</a>
+  <a href="#" data-v="perf">性能监控 (Grafana)</a>
+</nav>
+<main id="main"></main>
+</div>
+<script>
+const $=q=>document.querySelector(q);
+let view="dash", pollTimers=[];
+function clearPoll(){pollTimers.forEach(clearInterval);pollTimers=[]}
+function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function badge(st){return `<span class="badge ${st}">${st}</span>`}
+function nav(v){view=v;document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));clearPoll();render()}
+
+async function jget(u){const r=await fetch(u);if(r.status===401){location.href="/login";throw new Error("unauthorized")}if(!r.ok)throw new Error((await r.json()).detail||r.status);return r.json()}
+
+async function render(){
+  const m=$("#main");
+  if(view==="intro"){
+    m.innerHTML='<iframe src="/intro" style="width:100%;height:calc(100vh - 90px);border:1px solid var(--line,#30363d);border-radius:8px;background:#0d1117"></iframe>';
+  } else if(view==="dash"){
+    m.innerHTML=`<h2>CLUSTER OVERVIEW</h2><div class="cards" id="ov"></div>
+      <h2 style="margin-top:8px">RECENT JOBS</h2><div class="panel"><div class="bd" id="rj">loading…</div></div>`;
+    refreshDash();pollTimers.push(setInterval(refreshDash,4000));
+  } else if(view==="exec"){
+    m.innerHTML=`<div class="panel"><div class="hd">TASK EXECUTION</div><div class="bd">
+      <div class="flex"><select id="tsel"></select><button class="exe" id="run">▶ EXECUTE</button><button class="exe" id="killall" title="bkill all jobs" style="background:#c0392b;margin-left:auto">■ 取消全部作业</button></div>
+      <div id="prow" style="display:none;margin-top:10px;padding:12px 14px;border:1px solid #2d8cf0;border-radius:8px;background:#10151d">
+        <div style="font-size:13px;color:#79c0ff;margin-bottom:8px">📋 新节点部署参数（本任务必填）</div>
+        <div class="flex" style="gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:12px;color:#aaa">LSF Master IP：</span><input id="pmaster" value="172.16.12.211" placeholder="如 172.16.12.211" style="width:150px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;padding:5px 8px">
+          <span style="font-size:12px;color:#aaa">新节点 IP：</span><input id="pnode" value="" placeholder="如 172.16.12.221" style="width:150px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;padding:5px 8px">
+          <span style="font-size:12px;color:#aaa">新节点主机名：</span><input id="pname" value="" placeholder="如 node221，留空自动生成" style="width:170px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;padding:5px 8px">
+        </div>
+        <div style="font-size:11px;color:#666;margin-top:8px">提示：将按输入的 Master IP 加入对应集群；主机名留空时按新节点 IP 末位自动命名（node + 末位数字）。</div>
+      </div>
+      <div id="prowrm" style="display:none;margin-top:10px;padding:12px 14px;border:1px solid #c0392b;border-radius:8px;background:#1d1010">
+        <div style="font-size:13px;color:#ff7b72;margin-bottom:8px">🗑️ 删除节点参数（高风险操作，请确认）</div>
+        <div class="flex" style="gap:10px;align-items:center">
+          <span style="font-size:12px;color:#aaa">待删除节点 IP：</span><input id="rmnode" value="" placeholder="如 172.16.12.223" style="width:160px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;padding:5px 8px">
+        </div>
+        <div style="font-size:11px;color:#666;margin-top:8px">提示：将从 LSF 集群移除该节点 → 停止并删除该节点虚拟机 → 删除磁盘镜像。原有集群节点（node211/212/213/215/219）受保护不可删除。</div>
+      </div>
+      <div class="taskdesc" id="tdesc"></div><div id="dangerNote">⚠ 高风险任务：请确认演示环境影响后再执行</div></div></div>
+      <div class="panel"><div class="hd">JOB STATUS <span id="jst" class="muted"></span></div><div class="bd" id="jstat">尚未提交任务</div></div>
+      <div class="panel"><div class="hd">EXECUTION OUTPUT (terminal)</div><div class="bd">
+        <div class="term" id="tout">$ ready…</div>
+        <div class="flex" style="margin-top:8px"><button class="mini" id="cancel">Cancel Job</button><label class="muted"><input type="checkbox" id="autoscr" checked> auto-scroll</label></div></div></div>
+      <div class="panel" id="sumPanel" style="display:none"><div class="hd">HPC JOB SUMMARY</div><div class="bd"><div class="sumgrid" id="sumgrid"></div></div></div>`;
+    loadTasks();bindExec();
+  } else if(view==="jobs"){
+    m.innerHTML=`<h2>JOB HISTORY</h2><div class="panel"><div class="bd" id="jh">loading…</div></div>`;
+    refreshJobs();pollTimers.push(setInterval(refreshJobs,4000));
+  } else if(view==="cluster"){
+    m.innerHTML=`<h2 style="display:inline">LSF CLUSTER</h2> <select id="clref" title="auto refresh" style="margin-left:16px;background:#111;color:#eee;border:1px solid #444;border-radius:4px;padding:4px 8px;font-size:12px"><option value="5000">刷新 5秒</option><option value="10000" selected>刷新 10秒</option><option value="20000">刷新 20秒</option><option value="30000">刷新 30秒</option></select> <button id="clrefnow" title="refresh now" onclick="refreshCluster()" style="margin-left:8px;background:var(--acc,#2d8cf0);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer">↻ 立即刷新</button> <span id="clupd" style="margin-left:10px;color:var(--dim,#888);font-size:12px"></span><div class="cards" id="cc"></div>
+      <div class="panel"><div class="hd">bhosts</div><div class="bd"><div class="term" id="hosts"></div></div></div>
+      <div class="panel"><div class="hd">bqueues</div><div class="bd"><div class="term" id="queues"></div></div></div>
+      <div class="panel"><div class="hd">bjobs</div><div class="bd"><div class="term" id="bjobs"></div></div></div>`;
+    refreshCluster();startClusterTimer();$("#clref").onchange=startClusterTimer;
+  } else if(view==="perf"){
+    m.innerHTML=`<div class="flex" style="margin-bottom:12px"><select id="dashsel"></select>
+      <a class="btn" style="color:var(--acc);border:1px solid var(--acc);padding:4px 10px;border-radius:4px;font-size:12px;text-decoration:none" id="gopen" target="_blank" href="#">Open ↗</a></div>
+      <iframe id="gframe"></iframe>`;
+    loadDashboards();
+  }
+}
+
+async function refreshDash(){
+  try{
+    const [cl,jobs]=await Promise.all([jget("/api/cluster"),jget("/api/jobs")]);
+    const running=jobs.filter(j=>j.status==="RUNNING"||j.status==="PENDING").length;
+    $("#ov").innerHTML=`
+      <div class="card"><div class="k">LSF CLUSTER</div><div class="v ${cl.lsf_ok?'ok':''}">${cl.lsf_ok?'RUNNING':'ERROR'}</div></div>
+      <div class="card"><div class="k">HOSTS OK / TOTAL</div><div class="v">${cl.ok_hosts} / ${cl.total_hosts}</div></div>
+      <div class="card"><div class="k">ACTIVE DEMO JOBS</div><div class="v run">${running}</div></div>
+      <div class="card"><div class="k">TOTAL JOBS</div><div class="v">${jobs.length}</div></div>
+      <div class="card"><div class="k">LSF MASTER</div><div class="v" style="font-size:16px">${cl.master}</div></div>`;
+    $("#rj").innerHTML=jobs.length?`<table><tr><th>Job ID</th><th>Task</th><th>Status</th><th>LSF Job</th><th>Start</th></tr>${
+      jobs.slice(0,10).map(j=>`<tr><td>${j.job_id}</td><td>${esc(j.task_name)}</td><td>${badge(j.status)}</td><td>${j.lsf_job_id||"-"}</td><td>${j.start_time||""}</td></tr>`).join("")}</table>`
+      :'<span class="muted">暂无作业 — 到「任务执行」页提交第一个 HPC 任务</span>';
+  }catch(e){$("#ov").innerHTML=`<div class="card"><div class="k">ERROR</div><div class="v" style="color:var(--err)">${esc(e.message)}</div></div>`}
+}
+
+let TASKS={},CUR_JOB=null;
+async function loadTasks(){
+  const t=await jget("/api/tasks");TASKS={};const sel=$("#tsel");
+  sel.innerHTML=Object.entries(t.categories).map(([cat,items])=>
+    `<optgroup label="${esc(cat)}">`+items.map(i=>{TASKS[i.id]=i;
+      return `<option value="${i.id}">${esc(i.name)}${i.danger?" ⚠":""}</option>`}).join("")+"</optgroup>").join("");
+  sel.value="bench_hacc_io";selChange();sel.onchange=selChange;
+  $("#grafanaOpen").href=t.grafana_url;
+}
+function selChange(){const t=TASKS[$("#tsel").value];$("#tdesc").textContent=t?t.desc:"";$("#dangerNote").style.display=t&&t.danger?"block":"none";$("#prow").style.display=($("#tsel").value==="node_deploy")?"block":"none";$("#prowrm").style.display=($("#tsel").value==="node_remove")?"block":"none"}
+function bindExec(){
+  $("#killall").onclick=async()=>{
+    if(!confirm("\u786e\u8ba4\u53d6\u6d88\u96c6\u7fa4\u4e2d\u6240\u6709\u6b63\u5728\u6267\u884c\u548c\u6392\u961f\u7684 HPC \u4f5c\u4e1a\uff1f"))return;
+    const t=$("#tout");t.textContent="$ bkill -u lsfadmin\n\u63d0\u4ea4\u4e2d...";
+    try{const r=await fetch("/api/lsf/killall",{method:"POST"});
+      const d=await r.json();t.textContent="$ bkill -u lsfadmin\n"+(d.output||d.detail||"done");
+    }catch(e){t.textContent="\u53d6\u6d88\u5931\u8d25: "+e.message}
+  };
+  $("#run").onclick=async()=>{
+    const task_id=$("#tsel").value;
+    let body={task_id};
+    if(task_id==="node_deploy"){body.params={master_ip:$("#pmaster").value.trim(),node_ip:$("#pnode").value.trim(),node_name:$("#pname").value.trim()};
+      if(!body.params.master_ip||!body.params.node_ip){alert("请填写 LSF Master IP 和 新节点 IP");return}}
+    if(task_id==="node_remove"){body.params={node_ip:$("#rmnode").value.trim()};
+      if(!body.params.node_ip){alert("请填写待删除节点的 IP");return}
+      if(!confirm("确认删除节点 "+body.params.node_ip+" ？将移出 LSF 集群并删除虚拟机！"))return}
+    const r=await fetch("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok){alert("提交失败: "+(await r.json()).detail);return}
+    const {job_id}=await r.json();CUR_JOB=job_id;
+    $("#tout").textContent=`$ submitted ${task_id} → ${job_id}\n`;
+    $("#sumPanel").style.display="none";
+    clearInterval(pollTimers.pop());pollTimers.push(setInterval(pollJob,1500));
+  };
+  $("#cancel").onclick=async()=>{if(CUR_JOB){await fetch(`/api/jobs/${CUR_JOB}/cancel`,{method:"POST"})}};
+}
+async function pollJob(){
+  if(!CUR_JOB)return;
+  try{
+    const [meta,out]=await Promise.all([jget(`/api/jobs/${CUR_JOB}`),jget(`/api/jobs/${CUR_JOB}/output`)]);
+    $("#jst").textContent=meta.job_id+(meta.lsf_job_id?` · LSF Job ${meta.lsf_job_id}`:"");
+    $("#jstat").innerHTML=`<div class="flex">
+      <div>Job ID: <b>${meta.job_id}</b></div><div>Status: ${badge(meta.status)}</div>
+      <div>LSF Job ID: <b>${meta.lsf_job_id||"-"}</b></div><div>RC: ${meta.return_code??"-"}</div>
+      ${meta.error?`<div style="color:var(--err)">Error: ${esc(meta.error)}</div>`:""}</div>`;
+    const txt=out.stdout+(out.hpc?`\n----- LSF/HPC OUTPUT -----\n${out.hpc}`:"");
+    const t=$("#tout");t.textContent=txt||"$ …";
+    if($("#autoscr").checked)t.scrollTop=t.scrollHeight;
+    if(meta.status!=="RUNNING"&&meta.status!=="PENDING"&&meta.summary&&Object.keys(meta.summary).length){
+      const s=meta.summary;$("#sumPanel").style.display="block";
+      const fields=[["LSF Job ID",s.lsf_job_id],["Application",s.application],["LSF Status",s.lsf_status],
+        ["Nodes",s.nodes],["NP",s.np],["Start",s.start_time],["End",s.end_time],["Run Time",s.run_time],
+        ["Total Size",s.total_size],["Write BW",s.write_bw],["Read BW",s.read_bw],["I/O Bandwidth",s.io_bw],
+        ["Max Memory",s.max_memory],["App Exit",s.app_exit]];
+      $("#sumgrid").innerHTML=fields.map(([k,v])=>`<div class="it"><div class="k">${k}</div><div class="v">${esc(v??"N/A")}</div></div>`).join("");
+    }
+    if(meta.status!=="RUNNING"&&meta.status!=="PENDING"){clearPoll()}
+  }catch(e){}
+}
+
+async function refreshJobs(){
+  const jobs=await jget("/api/jobs");
+  $("#jh").innerHTML=jobs.length?`<table><tr><th>Job ID</th><th>Task</th><th>Category</th><th>Status</th><th>LSF Job</th><th>Start</th><th>End</th><th></th></tr>${
+    jobs.map(j=>`<tr><td>${j.job_id}</td><td>${esc(j.task_name)}</td><td>${esc(j.category||"")}</td><td>${badge(j.status)}</td>
+      <td>${j.lsf_job_id||"-"}</td><td>${esc(j.start_time||"")}</td><td>${esc(j.end_time||"")}</td>
+      <td><button class="mini" onclick="replay('${j.job_id}')">View</button></td></tr>`).join("")}</table>`
+    :'<span class="muted">暂无作业</span>';
+}
+window.replay=async jid=>{view="exec";document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.dataset.v==="exec"));clearPoll();render().then(()=>{CUR_JOB=jid;pollTimers.push(setInterval(pollJob,1500))})};
+
+function startClusterTimer(){if(window._clt)clearInterval(window._clt);window._clt=setInterval(refreshCluster,+($("#clref")?$("#clref").value:10000));pollTimers.push(window._clt)}
+async function refreshCluster(){
+  const cl=await jget("/api/cluster");
+  $("#cc").innerHTML=`<div class="card"><div class="k">MASTER</div><div class="v" style="font-size:16px">${cl.master}</div></div>
+    <div class="card"><div class="k">HOSTS OK</div><div class="v ok">${cl.ok_hosts}/${cl.total_hosts}</div></div>
+    <div class="card trend"><div class="k">集群负载趋势 (30min: 槽位/平均CPU%)</div><svg id="ltsvg" preserveAspectRatio="none"></svg></div>`;
+  $("#hosts").textContent=cl.hosts;$("#queues").textContent=cl.queues;$("#bjobs").textContent=cl.jobs||"(no unfinished job)";
+  const u=$("#clupd"); if(u) u.textContent="最后更新 "+new Date().toLocaleTimeString();
+  drawLoadTrend();
+}
+const PROM="http://172.16.12.181:9090";
+async function drawLoadTrend(){
+  const svg=$("#ltsvg"); if(!svg) return;
+  const end=Date.now(), start=end-30*60*1000;
+  const qs=(q)=>`${PROM}/api/v1/query_range?query=${encodeURIComponent(q)}&start=${start/1000}&end=${end/1000}&step=30`;
+  try{
+    const [b,c,m]=await Promise.all([fetch(qs("lsf_slots_busy")).then(r=>r.json()),
+      fetch(qs("100 - (avg (rate(node_cpu_seconds_total{mode=\"idle\"}[2m])) * 100)")).then(r=>r.json()),
+      fetch(qs("lsf_slots_max")).then(r=>r.json())]);
+    const val=(d,i)=>{const r=(d.data.result[0]||{values:[]}).values;return r[i]?+r[i][1]:null};
+    const vals=(d)=>((d.data.result[0]||{}).values)||[];
+    const B=vals(b),C=vals(c),M=vals(m);
+    if(!B.length&&!C.length){svg.innerHTML="<text x='10' y='80' fill='#888'>暂无数据</text>";return}
+    const W=svg.clientWidth||800,H=svg.clientHeight||90,pad=8;
+    const n=Math.max(B.length,C.length),maxv=Math.max(40,...B.map(x=>x[1]),...C.map(x=>x[1]),...M.map(x=>x[1]))*1.1;
+    const X=i=>pad+(W-2*pad)*i/Math.max(n-1,1), Y=v=>H-pad-(H-2*pad)*v/maxv;
+    const line=(d)=>d.map((pt,i)=>pt==null?"":`${X(i)},${Y(+pt[1])}`).filter(Boolean).join(" ");
+    let maxline=""; if(M.length) maxline=`<polyline points="${line(M)}" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,3"/>`;
+    svg.innerHTML=`${maxline}
+      <polyline points="${line(B)}" fill="none" stroke="#2d8cf0" stroke-width="2"/>
+      <polyline points="${line(C)}" fill="none" stroke="#e6a23c" stroke-width="2"/>
+      <text x="${W-160}" y="16" fill="#2d8cf0" font-size="11">■ 槽位占用</text>
+      <text x="${W-80}" y="16" fill="#e6a23c" font-size="11">■ 平均CPU%</text>
+      <text x="${pad}" y="16" fill="#888" font-size="10">max=${Math.round(maxv)}</text>`;
+  }catch(e){svg.innerHTML="<text x='10' y='80' fill='#c66'>Prometheus 不可达: "+e.message+"</text>"}
+}
+async function loadDashboards(){
+  const d=await jget("/api/ui-dashboards");
+  const sel=$("#dashsel");
+  if(!d.ok){sel.innerHTML=`<option>Grafana 不可达: ${esc(d.error)}</option>`;return}
+  sel.innerHTML=d.dashboards.map(x=>`<option value="${x.uid}">${esc(x.title)}</option>`).join("");
+  const set=()=>{$("#gframe").src=`/d/${sel.value}/?kiosk&refresh=10s`;$("#gopen").href=`${d.base}/d/${sel.value}/`};
+  sel.onchange=set;set();
+}
+document.querySelectorAll("nav a").forEach(a=>a.onclick=e=>{e.preventDefault();nav(a.dataset.v)});
+const _qv=new URLSearchParams(location.search).get("view");
+if(_qv&&["intro","dash","exec","jobs","cluster","perf"].includes(_qv))nav(_qv);
+setInterval(()=>$("#clock").textContent=new Date().toLocaleString(),1000);
+render();
+</script>
+</body>
+</html>

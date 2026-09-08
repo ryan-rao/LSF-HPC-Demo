@@ -1,0 +1,26 @@
+---
+# ============ LSF 配置/启动 ============
+- name: 启动 LIM
+  shell: . {{ lsf_top }}/conf/profile.lsf && { pgrep -x lim || $LSF_SERVERDIR/lim; }
+
+- name: 启动 RES
+  shell: . {{ lsf_top }}/conf/profile.lsf && { pgrep -x res || $LSF_SERVERDIR/res; }
+
+- name: 启动 sbatchd
+  shell: . {{ lsf_top }}/conf/profile.lsf && { pgrep -x sbatchd || $LSF_SERVERDIR/sbatchd; }
+
+- name: master 启动 mbatchd
+  shell: . {{ lsf_top }}/conf/profile.lsf && { pgrep -x mbatchd || nohup $LSF_SERVERDIR/mbatchd </dev/null >/dev/null 2>&1 & }
+  when: inventory_hostname == lsf_master
+
+- name: 等待 mbatchd 就绪
+  shell: su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; bhosts'
+  register: bh
+  until: bh.stdout_lines | length > 1
+  retries: 12
+  delay: 5
+  when: inventory_hostname == lsf_master
+
+- name: 显示集群状态
+  debug: { var: bh.stdout_lines }
+  when: inventory_hostname == lsf_master

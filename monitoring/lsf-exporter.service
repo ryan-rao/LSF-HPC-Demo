@@ -1,0 +1,11 @@
+[Unit]
+Description=LSF Metrics Exporter
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/lsf_exporter.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

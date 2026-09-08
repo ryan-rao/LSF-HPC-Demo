@@ -1,0 +1,41 @@
+---
+# ============ LSF 功能测试 ============
+- name: T1 集群标识
+  shell: su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; lsid'
+  register: t1
+
+- name: T1 断言
+  assert: { that: "'IBM Spectrum LSF' in t1.stdout", success_msg: "T1 PASS lsid" }
+
+- name: T2 主机表节点数
+  shell: su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; lshosts' | tail -n +2 | wc -l
+  register: t2
+
+- name: T2 断言（>= inventory 节点数）
+  assert: { that: "t2.stdout | int >= groups['lsf_cluster'] | length", success_msg: "T2 PASS lshosts {{ t2.stdout }} nodes" }
+
+- name: T3 全节点 ok
+  shell: >
+    su - {{ lsf_admin_user }} -c '. {{ lsf_top }}/conf/profile.lsf; bhosts' |
+    awk 'NR>1 && $2!="ok" {bad++} END {print bad+0}'
+  register: t3
+
+- name: T3 断言
+  assert: { that: "t3.stdout == '0'", success_msg: "T3 PASS bhosts all ok" }
+
+- name: T4 提交互测作业并等待完成
+  shell: |
+    su - {{ lsf_admin_user }} -c '
+    . {{ lsf_top }}/conf/profile.lsf
+    ID=$(bsub -J ansible_t4 -o /dev/null sleep 5 | grep -oE "[0-9]+")
+    for i in $(seq 1 30); do
+      ST=$(bjobs -noheader $ID 2>/dev/null | awk "{print \$3}")
+      [ "$ST" = DONE ] && echo DONE && exit 0
+      [ "$ST" = EXIT ] && echo EXIT && exit 1
+      sleep 2
+    done
+    echo TIMEOUT; exit 1'
+  register: t4
+
+- name: T4 断言
+  assert: { that: "t4.stdout == 'DONE'", success_msg: "T4 PASS bsub->DONE" }

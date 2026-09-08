@@ -1,0 +1,38 @@
+---
+# ============ LSF 卸载 ============
+- name: 停止客户端守护
+  shell: pkill -x lim; pkill -x res; pkill -x sbatchd; true
+
+- name: master 停止 mbatchd
+  shell: pkill -x mbatchd; true
+  when: inventory_hostname == lsf_master
+
+- name: workers 卸载 LSF_TOP
+  shell: |
+    umount -f -l {{ lsf_top }} 2>/dev/null; true
+    sed -i "\#{{ lsf_top }} #d" /etc/fstab
+    rm -rf {{ lsf_top }}
+  when: inventory_hostname != lsf_master
+
+- name: master 移除 LSF 导出
+  lineinfile: { path: /etc/exports, state: absent, regexp: "^{{ lsf_top }}\\s" }
+  when: inventory_hostname == lsf_master
+
+- name: master 生效导出
+  shell: exportfs -rv
+  when: inventory_hostname == lsf_master
+
+- name: master 清理 LSF_TOP 与安装器
+  file: { path: "{{ item }}", state: absent }
+  loop: [ "{{ lsf_top }}", "{{ lsf_media_dir }}/installer" ]
+  when: inventory_hostname == lsf_master
+
+- name: 清理 LSF 系统配置
+  file: { path: "{{ item }}", state: absent }
+  loop: [ /etc/lsf.conf, /etc/profile.d/lsf.sh, /etc/profile.d/lsf.csh ]
+  ignore_errors: true
+
+- name: 可选删除 lsfadmin 用户
+  shell: userdel -r {{ lsf_admin_user }}
+  when: not uninstall_keep_lsfadmin | bool
+  ignore_errors: true

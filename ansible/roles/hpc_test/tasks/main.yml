@@ -1,0 +1,42 @@
+---
+# ============ HPC 功能测试 ============
+- name: H1 基准二进制就绪（master 共享盘）
+  stat: { path: "{{ hpc_top }}/hpc-bench-main/bin/{{ item }}" }
+  register: h1
+  loop: [ HACC_IO, HACC_OPEN_CLOSE, s3d_io, BTIO, MADbench ]
+
+- name: H1 断言五基准齐全
+  assert:
+    that: h1.results | map(attribute='stat.exists') | select('equalto', false) | list | length == 0
+    success_msg: "H1 PASS 五基准二进制齐全"
+
+- name: H2 各节点 MPI 本地自检
+  shell: |
+    [ -f /etc/profile.d/hpc.sh ] && . /etc/profile.d/hpc.sh
+    export MPI_HOME={{ mpi_home }} PATH={{ mpi_home }}/bin:$PATH LD_LIBRARY_PATH={{ mpi_home }}/lib:$LD_LIBRARY_PATH
+    mpirun --allow-run-as-root --prefix $MPI_HOME -np 2 hostname
+  register: h2
+
+- name: H2 断言（每节点 2 rank 正常）
+  assert: { that: "h2.rc == 0", success_msg: "H2 PASS MPI local {{ h2.stdout_lines | length }} ranks" }
+
+- name: H3 前置：master root 补集群 known_hosts（避免 mpirun SSH 卡死）
+  shell: "for T in {{ groups['lsf_cluster'] | join(' ') }}; do ssh-keyscan -t rsa,ecdsa,ed25519 -H \"$T\" >> /root/.ssh/known_hosts 2>/dev/null || true; done"
+  when: inventory_hostname == lsf_master
+
+- name: H3 MPI 跨节点直跑（master 发起）
+  shell: |
+    [ -f /etc/profile.d/hpc.sh ] && . /etc/profile.d/hpc.sh
+    export MPI_HOME={{ mpi_home }} PATH={{ mpi_home }}/bin:$PATH LD_LIBRARY_PATH={{ mpi_home }}/lib:$LD_LIBRARY_PATH
+    HF=/tmp/ansible_hf; : > $HF
+    {% for h in groups['lsf_cluster'] %}
+    echo "{{ h }} slots=2" >> $HF
+    {% endfor %}
+    mpirun --allow-run-as-root --prefix $MPI_HOME --hostfile $HF --map-by node \
+      -np {{ groups['lsf_cluster'] | length * 2 }} hostname | sort -u | wc -l
+  register: h3
+
+- name: H3 断言（覆盖全部节点）
+  assert:
+    that: "h3.stdout | int == groups['lsf_cluster'] | length"
+    success_msg: "H3 PASS MPI 跨节点覆盖 {{ h3.stdout }} 节点"

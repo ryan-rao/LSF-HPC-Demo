@@ -1,0 +1,93 @@
+---
+# ============ LSF 集成 HPC（信任链 + 调度脚本 + 五基准验证） ============
+- name: master 生成 lsfadmin 密钥对
+  shell: su - {{ lsf_admin_user }} -c "ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa"
+  args: { creates: "/home/{{ lsf_admin_user }}/.ssh/id_rsa" }
+  when: inventory_hostname == lsf_master
+
+- name: master 取回公钥/私钥
+  slurp: { src: "/home/{{ lsf_admin_user }}/.ssh/{{ item }}" }
+  register: keydata
+  loop: [ id_rsa.pub, id_rsa ]
+  run_once: true
+  delegate_to: "{{ lsf_master }}"
+
+- name: 全节点写入 lsfadmin 密钥
+  copy:
+    dest: "/home/{{ lsf_admin_user }}/.ssh/{{ item.item }}"
+    content: "{{ item.content | b64decode }}"
+    owner: "{{ lsf_admin_user }}"
+    mode: "0600"
+  loop: "{{ keydata.results }}"
+  no_log: true
+
+- name: 全节点 authorized_keys 追加公钥
+  shell: |
+    PUB=$(cat /home/{{ lsf_admin_user }}/.ssh/id_rsa.pub)
+    grep -qF "$PUB" /home/{{ lsf_admin_user }}/.ssh/authorized_keys 2>/dev/null || echo "$PUB" >> /home/{{ lsf_admin_user }}/.ssh/authorized_keys
+    chown -R {{ lsf_admin_user }} /home/{{ lsf_admin_user }}/.ssh
+    chmod 700 /home/{{ lsf_admin_user }}/.ssh; chmod 600 /home/{{ lsf_admin_user }}/.ssh/authorized_keys
+
+- name: 全节点 known_hosts 互扫
+  shell: "su - {{ lsf_admin_user }} -c 'for T in {{ groups['lsf_cluster'] | join(' ') }}; do ssh-keyscan -t rsa,ecdsa,ed25519 -H \"$T\" >> $HOME/.ssh/known_hosts 2>/dev/null || true; done'; true"
+
+- name: 全互信验证（master -> 任意节点）
+  shell: su - {{ lsf_admin_user }} -c "ssh -o BatchMode=yes {{ item }} hostname"
+  loop: "{{ groups['lsf_cluster'] }}"
+  run_once: true
+  delegate_to: "{{ lsf_master }}"
+  register: trust
+
+- name: 互信断言
+  assert:
+    that: trust.results | map(attribute='stdout') | select('equalto', '') | list | length == 0
+    success_msg: "I1 PASS lsfadmin 全互信"
+
+- name: 部署通用调度脚本 lsf_bench.sh
+  copy: { src: lsf_bench.sh, dest: "{{ hpc_top }}/lsf_bench.sh", mode: "0755", owner: "{{ lsf_admin_user }}" }
+
+- name: 部署混合应用与压力测试脚本
+  copy: { src: "{{ item }}", dest: "{{ hpc_top }}/{{ item }}", mode: "0755", owner: "{{ lsf_admin_user }}" }
+  loop: [lsf_mixed.sh, lsf_stress.sh]
+
+- name: 部署 hello 测试程序
+  copy: { src: hello.c, dest: "{{ hpc_top }}/hello.c", mode: "0644" }
+
+- name: 编译 hello
+  shell: . /etc/profile.d/hpc.sh && mpicc {{ hpc_top }}/hello.c -o {{ hpc_top }}/hello
+  args: { creates: "{{ hpc_top }}/hello" }
+
+- name: I2 五基准 LSF 调度验证（偶发 mpirun SSH 瞬断自动重试 1 次）
+  shell: |
+    su - {{ lsf_admin_user }} -c '
+    . {{ lsf_top }}/conf/profile.lsf
+    B={{ item.b }}; N={{ item.n }}; P={{ item.p }}
+    for ATTEMPT in 1 2; do
+      ID=$(bsub -J a_$B -n $N -R "span[ptile=$P]" -o {{ hpc_top }}/lsf_logs/ansible_$B.%J.out \
+           {{ hpc_top }}/lsf_bench.sh $B | grep -oE "[0-9]+")
+      [ -z "$ID" ] && echo "$B SUBMIT_FAIL" && exit 1
+      for i in $(seq 1 90); do
+        ST=$(bjobs -noheader $ID 2>/dev/null | awk "{print \$3}")
+        [ "$ST" = DONE ] && break
+        if [ "$ST" = EXIT ]; then break; fi
+        sleep 5
+      done
+      [ "$ST" = DONE ] && break
+      [ $ATTEMPT -eq 2 ] && echo "$B EXIT (after retry)" && exit 1
+      echo "$B attempt$ATTEMPT EXIT, retrying..."; sleep 15
+    done
+    grep -q "=== $B exit=0" {{ hpc_top }}/lsf_logs/ansible_$B.$ID.out && echo "$B PASS"'
+  loop:
+    - { b: HACC_IO, n: 8, p: 2 }
+    - { b: HACC_OPEN_CLOSE, n: 8, p: 2 }
+    - { b: s3d_io, n: 8, p: 2 }
+    - { b: BTIO, n: 4, p: 1 }
+    - { b: MADbench, n: 4, p: 1 }
+  register: i2
+  run_once: true
+  delegate_to: "{{ lsf_master }}"
+
+- name: 集成断言
+  assert:
+    that: i2.results | map(attribute='stdout') | select('search', 'PASS') | list | length == 5
+    success_msg: "I2 PASS 五基准全部经 LSF 调度 exit=0"
