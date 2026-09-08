@@ -99,8 +99,7 @@ LSF HPC Demo 基于 IBM Spectrum LSF 构建，覆盖**集群部署 → 作业调
 
 ## 六、性能监控
 
-
-<img width="1432" height="1145" alt="25128949-5c20-41b0-af1a-c8577ed6eab0" src="https://github.com/user-attachments/assets/c558446e-105f-4f4e-8b18-a1310f02b81f" />
+<img width="1661" height="1410" alt="19a02767-737d-4104-8d2c-baf0e42f8a6b" src="https://github.com/user-attachments/assets/17baaa2e-462d-4e5f-84e7-dcc008619562" />
 
 *图 5 · 性能监控页面（内嵌 Grafana）*
 
